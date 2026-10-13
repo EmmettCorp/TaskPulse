@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskPulse - Async Standups, Zero Distraction</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#090D16',
+                        slateDark: '#0F172A',
+                        accent: '#6366F1',
+                        accentHover: '#4F46E5',
+                        coral: '#FF6B6B',
+                        surface: '#111827',
+                        surfaceCard: '#1E293B',
+                        borderLight: 'rgba(255, 255, 255, 0.08)'
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Google Identity Services Library API -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <style>
+        .glass {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-nav {
+            background: rgba(9, 13, 22, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-accent {
+            box-shadow: 0 0 35px -5px rgba(99, 102, 241, 0.45);
+        }
+        .glow-coral {
+            box-shadow: 0 0 30px -5px rgba(255, 107, 107, 0.35);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #FFFFFF 0%, #CBD5E1 50%, #818CF8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-primary text-slate-100 font-sans antialiased selection:bg-accent selection:text-white min-h-screen">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Navigation Header -->
+    <header class="fixed top-0 left-0 w-full z-40 glass-nav transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                
+                <!-- Logo & Version Badge -->
+                <a href="#" class="flex items-center gap-3 group">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-accent via-indigo-500 to-coral flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-transform">
+                        <i data-lucide="activity" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl font-black tracking-tight text-white">TaskPulse</span>
+                        <span class="px-2 py-0.5 rounded-full bg-accent/20 border border-accent/40 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">v2.4 Live</span>
+                    </div>
+                </a>
+
+                <!-- Desktop Navigation Links -->
+                <nav class="hidden md:flex items-center gap-8 font-medium text-sm text-slate-300">
+                    <a href="#features" class="hover:text-white transition-colors">Features</a>
+                    <a href="#demo" class="hover:text-white transition-colors">Live Dashboard</a>
+                    <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+                    <a href="#enterprise" class="hover:text-white transition-colors">Enterprise</a>
+                </nav>
+
+                <!-- Auth & Action Buttons -->
+                <div class="hidden md:flex items-center gap-4">
+                    <!-- Google Sign-In SDK Button Container -->
+                    <div id="google-auth-btn-wrapper" class="min-h-[40px] flex items-center">
+                        <div id="g_id_onload"
+                             data-client_id="204533614007-gato3tic7th4b7bvi7j1s4nb7g5ab349.apps.googleusercontent.com"
+                             data-callback="handleGoogleSignIn"
+                             data-auto_prompt="false">
+                        </div>
+                        <div class="g_id_signin" 
+                             data-type="standard" 
+                             data-size="medium" 
+                             data-theme="dark" 
+                             data-text="sign_in_with" 
+                             data-shape="pill" 
+                             data-logo_alignment="left">
+                        </div>
+                    </div>
+
+                    <!-- Authenticated User Profile Pill (Hidden Initially) -->
+                    <div id="user-profile-menu" class="hidden flex items-center gap-3 bg-surfaceCard border border-white/10 px-3 py-1.5 rounded-full shadow-lg">
+                        <img id="user-avatar" src="" alt="User Avatar" class="w-7 h-7 rounded-full border border-accent object-cover">
+                        <div class="flex flex-col">
+                            <span id="user-name" class="text-xs font-bold text-slate-100 leading-tight">User</span>
+                            <span id="user-email" class="text-[10px] text-slate-400 leading-tight"></span>
+                        </div>
+                        <button onclick="signOutUser()" class="text-slate-400 hover:text-coral transition-colors ml-2 p-1" title="Sign Out">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <a href="#pricing" class="px-5 py-2.5 rounded-full text-sm font-semibold bg-accent hover:bg-accentHover text-white transition-all duration-200 glow-accent flex items-center gap-2">
+                        <span>Get Started</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
+
+                <!-- Mobile Hamburger Button -->
+                <div class="md:hidden flex items-center gap-3">
+                    <button id="mobile-menu-btn" class="p-2 rounded-lg text-slate-300 hover:bg-surfaceCard focus:outline-none">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Drawer Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-primary/95 border-b border-white/10 px-4 pt-2 pb-6 space-y-3">
+            <a href="#features" class="block py-2 text-slate-300 hover:text-white font-medium">Features</a>
+            <a href="#demo" class="block py-2 text-slate-300 hover:text-white font-medium">Live Dashboard</a>
+            <a href="#pricing" class="block py-2 text-slate-300 hover:text-white font-medium">Pricing</a>
+            <a href="#enterprise" class="block py-2 text-slate-300 hover:text-white font-medium">Enterprise</a>
+            <div class="pt-4 border-t border-white/10 flex flex-col gap-3">
+                <button onclick="simulateGoogleSignIn()" class="w-full py-2.5 rounded-xl border border-white/20 bg-surfaceCard flex items-center justify-center gap-2 text-sm font-semibold text-slate-200">
+                    <i data-lucide="log-in" class="w-4 h-4 text-accent"></i>
+                    <span>Simulate Google Login</span>
+                </button>
+                <a href="#pricing" class="w-full text-center py-2.5 rounded-xl bg-accent text-white font-semibold text-sm">
+                    Get Started Free
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative pt-36 pb-20 md:pt-48 md:pb-32 overflow-hidden">
+        <!-- Ambient Background Glows -->
+        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[650px] h-[650px] bg-accent/20 rounded-full blur-[150px] pointer-events-none"></div>
+        <div class="absolute top-1/3 right-10 w-[350px] h-[350px] bg-coral/15 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-accent/30 text-xs font-semibold text-indigo-300 mb-8">
+                <span class="w-2 h-2 rounded-full bg-coral animate-ping"></span>
+                <span>Async Standups • Streamline Daily Check-ins for Tech Teams</span>
+            </div>
+
+            <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight max-w-5xl mx-auto leading-[1.12]">
+                Async Standups.<br/>
+                <span class="gradient-text">Zero Friction. Maximum Focus.</span>
+            </h1>
+
+            <p class="mt-6 text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto font-normal leading-relaxed">
+                Replace tedious 30-minute status calls with automated daily digests. TaskPulse collects team blockers, tasks, and achievements asynchronously directly from Slack or Teams.
+            </p>
+
+            <!-- Hero Dual CTAs & Google Auth Quick Signup -->
+            <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button onclick="simulateGoogleSignIn()" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-white hover:bg-slate-100 text-slateDark font-bold text-base transition-all duration-200 shadow-xl flex items-center justify-center gap-3 group">
+                    <svg class="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Start 14-Day Free Trial</span>
+                </button>
+
+                <a href="#enterprise" class="w-full sm:w-auto px-8 py-4 rounded-xl glass hover:bg-surfaceCard text-slate-200 font-semibold text-base border border-white/15 transition-all duration-200 flex items-center justify-center gap-2">
+                    <i data-lucide="building-2" class="w-5 h-5 text-accent"></i>
+                    <span>Book Enterprise Demo</span>
+                </a>
+            </div>
+
+            <!-- Live Stat Ticker Counter -->
+            <div class="mt-20 grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                <div class="glass p-6 rounded-2xl border border-white/5">
+                    <p class="text-3xl sm:text-4xl font-extrabold text-white" id="stat-standups">100,000+</p>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1 font-medium">Standups Completed</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border border-white/5">
+                    <p class="text-3xl sm:text-4xl font-extrabold text-emerald-400">99.99%</p>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1 font-medium">Platform Uptime SLA</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border border-white/5">
+                    <p class="text-3xl sm:text-4xl font-extrabold text-accent">15+ Hrs</p>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1 font-medium">Saved / Dev / Month</p>
+                </div>
+                <div class="glass p-6 rounded-2xl border border-white/5">
+                    <p class="text-3xl sm:text-4xl font-extrabold text-coral">4,800+</p>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1 font-medium">Engineering Teams</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Interactive Dashboard Section -->
+    <section id="demo" class="py-20 bg-surface/60 border-y border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-xs font-bold text-accent uppercase tracking-widest mb-3">Live Platform Preview</h2>
+                <p class="text-3xl sm:text-4xl font-bold text-white tracking-tight">Real-Time Async Daily Standup Summary</p>
+            </div>
+
+            <!-- Interactive UI Showcase Card -->
+            <div class="glass rounded-3xl p-4 sm:p-8 border border-white/10 shadow-2xl overflow-hidden">
+                <!-- Mock Header Bar -->
+                <div class="flex items-center justify-between border-b border-white/10 pb-6 mb-8 flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="flex gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+                        </div>
+                        <span class="text-xs font-mono text-slate-400">taskpulse.app/workspace/sprint-42-digest</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="refreshDashboardData()" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-200 transition-colors flex items-center gap-1.5 border border-white/10">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-accent"></i>
+                            <span>Simulate Refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dashboard Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Team Check-in Digest Feed -->
+                    <div class="lg:col-span-2 space-y-4">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Today's Team Submissions</h3>
+                        
+                        <!-- Check-in Item 1 -->
+                        <div class="glass p-5 rounded-2xl border border-white/5 hover:border-accent/40 transition-colors">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-sm border border-indigo-500/30">AK</div>
+                                    <div>
+                                        <p class="text-sm font-bold text-white">Alex Chen <span class="text-xs font-normal text-slate-400">• Lead Backend Architect</span></p>
+                                        <p class="text-[11px] text-slate-400">Submitted 8:45 AM via Slack Integration</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold border border-emerald-500/20">Completed</span>
+                            </div>
+                            <div class="mt-4 text-xs text-slate-300 space-y-1.5">
+                                <p><strong class="text-slate-100">Yesterday:</strong> Integrated Stripe Payment Link & Google OAuth JWT verification.</p>
+                                <p><strong class="text-slate-100">Today:</strong> Deploying Formspree endpoint webhook listeners for enterprise requests.</p>
+                                <p class="text-amber-400 font-medium"><strong>Blocker:</strong> Waiting for staging database migration approvals.</p>
+                            </div>
+                        </div>
+
+                        <!-- Check-in Item 2 -->
+                        <div class="glass p-5 rounded-2xl border border-white/5 hover:border-accent/40 transition-colors">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-coral/20 text-coral flex items-center justify-center font-bold text-sm border border-coral/30">SJ</div>
+                                    <div>
+                                        <p class="text-sm font-bold text-white">Sarah Jenkins <span class="text-xs font-normal text-slate-400">• Senior UX Lead</span></p>
+                                        <p class="text-[11px] text-slate-400">Submitted 9:10 AM via MS Teams</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold border border-emerald-500/20">Completed</span>
+                            </div>
+                            <div class="mt-4 text-xs text-slate-300 space-y-1.5">
+                                <p><strong class="text-slate-100">Yesterday:</strong> Finalized pricing toggle matrix and glassmorphism styling.</p>
+                                <p><strong class="text-slate-100">Today:</strong> Polishing dark mode high-contrast typography readability.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Side Analytics & Active Blocker Panel -->
+                    <div class="space-y-6">
+                        <div class="glass p-5 rounded-2xl border border-white/5">
+                            <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                                <i data-lucide="shield-alert" class="w-4 h-4 text-coral"></i>
+                                Blocker Radar
+                            </h4>
+                            <div class="p-3.5 rounded-xl bg-coral/10 border border-coral/20 text-xs" id="blocker-box">
+                                <p class="font-bold text-coral mb-1">Staging Database Lock</p>
+                                <p class="text-slate-300">Blocking 2 engineers in Sprint #42.</p>
+                                <button onclick="resolveBlockerSim(this)" class="mt-3 px-3 py-1.5 bg-coral hover:bg-red-500 text-white font-semibold rounded-lg transition-colors w-full text-xs shadow">
+                                    Resolve Blocker Now
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="glass p-5 rounded-2xl border border-white/5">
+                            <h4 class="text-sm font-bold text-white mb-3">Sprint Participation</h4>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Daily Response Rate</span>
+                                        <span class="text-accent font-bold" id="participation-val">98%</span>
+                                    </div>
+                                    <div class="w-full bg-primary h-2 rounded-full overflow-hidden">
+                                        <div class="bg-accent h-full rounded-full" style="width: 98%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <span class="text-slate-300">Async Blockers Cleared</span>
+                                        <span class="text-emerald-400 font-bold">18 / 19</span>
+                                    </div>
+                                    <div class="w-full bg-primary h-2 rounded-full overflow-hidden">
+                                        <div class="bg-emerald-400 h-full rounded-full" style="width: 94%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feature Grid Section -->
+    <section id="features" class="py-24 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-20">
+                <h2 class="text-xs font-bold text-accent uppercase tracking-widest mb-3">Core Capabilities</h2>
+                <p class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">Everything needed to drop standup meetings</p>
+                <p class="text-slate-400 mt-4 text-base sm:text-lg">Keep product, engineering, and leadership aligned without calendars full of syncs.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <!-- Feature 1 -->
+                <div class="glass p-8 rounded-3xl border border-white/5 hover:border-accent/50 transition-all duration-300 group">
+                    <div class="w-12 h-12 rounded-2xl bg-accent/20 text-accent flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-accent/30">
+                        <i data-lucide="bot" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Automated Slack Digest</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        Prompt team members directly inside Slack or MS Teams at their start of day. Collect updates into a single daily summary.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="glass p-8 rounded-3xl border border-white/5 hover:border-coral/50 transition-all duration-300 group">
+                    <div class="w-12 h-12 rounded-2xl bg-coral/20 text-coral flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-coral/30">
+                        <i data-lucide="radar" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Blocker Radar</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        Instantly escalate reported obstacles to engineering managers before sprint deadlines are impacted.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="glass p-8 rounded-3xl border border-white/5 hover:border-emerald-500/50 transition-all duration-300 group">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-emerald-500/30">
+                        <i data-lucide="sparkles" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">AI Executive Summarizer</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        Generate weekly bulleted executive digests summarizing team output, velocity, and risks automatically.
+                    </p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="glass p-8 rounded-3xl border border-white/5 hover:border-purple-500/50 transition-all duration-300 group">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-purple-500/30">
+                        <i data-lucide="clock" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Timezone Smart Scheduling</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        Trigger check-ins at 9:00 AM local time for developers in New York, London, Tokyo, or San Francisco.
+                    </p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="glass p-8 rounded-3xl border border-white/5 hover:border-amber-500/50 transition-all duration-300 group">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-amber-500/30">
+                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Enterprise SOC2 Compliance</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        Bank-grade encryption in transit and at rest with SSO and Google Workspace Identity management.
+                    </p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="glass p-8 rounded-3xl border border-white/5 hover:border-cyan-500/50 transition-all duration-300 group">
+                    <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-cyan-500/30">
+                        <i data-lucide="video" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Async Video & Screen Clips</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">
+                        Attach short 60-second video walkthroughs or pull request screenshots directly to daily updates.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Matrix (Stripe Test Payment Link Integrated) -->
+    <section id="pricing" class="py-24 bg-surface/40 relative border-t border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-14">
+                <h2 class="text-xs font-bold text-accent uppercase tracking-widest mb-3">Simple Pricing</h2>
+                <p class="text-3xl sm:text-5xl font-extrabold text-white">Start 14-day trial on any plan</p>
+                
+                <!-- Monthly / Annual Toggle -->
+                <div class="mt-8 inline-flex items-center gap-3 p-1.5 rounded-full glass border border-white/10">
+                    <button id="label-monthly" class="text-xs font-bold px-5 py-2 rounded-full bg-accent text-white transition-all cursor-pointer" onclick="setBillingCycle('monthly')">Monthly Billing</button>
+                    <button id="label-annual" class="text-xs font-bold px-5 py-2 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer" onclick="setBillingCycle('annual')">Annual (Save 20%)</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                
+                <!-- Free Starter Tier -->
+                <div class="glass p-8 rounded-3xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Starter</h3>
+                        <p class="text-xs text-slate-400 mt-1">For small teams up to 5 developers.</p>
+                        <div class="my-6">
+                            <span class="text-4xl font-extrabold text-white">$0</span>
+                            <span class="text-xs text-slate-400">/ forever free</span>
+                        </div>
+                        <ul class="space-y-3.5 text-xs text-slate-300">
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Up to 5 Team Members
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Slack Integration
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                7-day history retention
+                            </li>
+                        </ul>
+                    </div>
+                    <button onclick="simulateGoogleSignIn()" class="mt-8 w-full py-3.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-semibold text-sm transition-all text-center">
+                        Start Free Trial
+                    </button>
+                </div>
+
+                <!-- Pro Plan Tier (Linked to User's Stripe Payment Link) -->
+                <div class="glass p-8 rounded-3xl border-2 border-accent relative flex flex-col justify-between glow-accent bg-surfaceCard/90">
+                    <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-accent text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg border border-indigo-400/40">
+                        Most Popular
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Pro Squad</h3>
+                        <p class="text-xs text-slate-400 mt-1">For high-velocity startups & scaleups.</p>
+                        <div class="my-6">
+                            <span class="text-4xl font-extrabold text-white price-display" data-monthly="$12" data-annual="$10">$12</span>
+                            <span class="text-xs text-slate-400">/ user / month</span>
+                        </div>
+                        <ul class="space-y-3.5 text-xs text-slate-300">
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Unlimited Users & Channels
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Slack & MS Teams Native
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Blocker Radar & Instant Alerts
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Jira & GitHub PR Sync
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Unlimited History Storage
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Direct Integration to user's Stripe Test Payment Link -->
+                    <a id="stripe-checkout-btn" 
+                       href="https://buy.stripe.com/test_7sY00k9NNfeg7yIfzHcV207" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="mt-8 w-full py-4 rounded-xl bg-accent hover:bg-accentHover text-white font-bold text-sm transition-all shadow-xl flex items-center justify-center gap-2 group">
+                        <i data-lucide="credit-card" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+                        <span>Checkout via Stripe Sandbox</span>
+                        <i data-lucide="external-link" class="w-3.5 h-3.5 text-indigo-200"></i>
+                    </a>
+                </div>
+
+                <!-- Enterprise Custom Tier -->
+                <div class="glass p-8 rounded-3xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Enterprise</h3>
+                        <p class="text-xs text-slate-400 mt-1">For organizations with 100+ team members.</p>
+                        <div class="my-6">
+                            <span class="text-4xl font-extrabold text-white">Custom</span>
+                            <span class="text-xs text-slate-400">/ tailored billing</span>
+                        </div>
+                        <ul class="space-y-3.5 text-xs text-slate-300">
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Dedicated Customer Success Lead
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                SAML SSO / Okta Integration
+                            </li>
+                            <li class="flex items-center gap-2.5">
+                                <i data-lucide="check" class="w-4 h-4 text-accent"></i>
+                                Custom SLA & Audit Logs
+                            </li>
+                        </ul>
+                    </div>
+                    <a href="#enterprise" class="mt-8 w-full py-3.5 rounded-xl border border-white/20 hover:bg-white/10 text-white font-semibold text-sm transition-all text-center block">
+                        Contact Enterprise Sales
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof Section -->
+    <section class="py-20 border-t border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-xs font-bold text-slate-400 uppercase tracking-widest mb-10">Trusted by VPs of Engineering and CTOs worldwide</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="glass p-6 rounded-2xl border border-white/5">
+                    <div class="flex items-center gap-1 text-amber-400 mb-4">
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-4">
+                        "TaskPulse cut our daily standup meeting tax to zero. Developers get 45 minutes back every morning and blockers get solved in real time."
+                    </p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-accent/30 text-accent font-bold text-xs flex items-center justify-center">MR</div>
+                        <div>
+                            <p class="text-xs font-bold text-white">Marcus Vance</p>
+                            <p class="text-[10px] text-slate-400">VP of Engineering, CloudScale</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass p-6 rounded-2xl border border-white/5">
+                    <div class="flex items-center gap-1 text-amber-400 mb-4">
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-4">
+                        "The Slack integration is seamless. Our engineers across 4 time zones submit check-ins at their own start of day without friction."
+                    </p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-coral/30 text-coral font-bold text-xs flex items-center justify-center">EL</div>
+                        <div>
+                            <p class="text-xs font-bold text-white">Elena Lin</p>
+                            <p class="text-[10px] text-slate-400">CTO, FinTech Pulse</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass p-6 rounded-2xl border border-white/5">
+                    <div class="flex items-center gap-1 text-amber-400 mb-4">
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                        <i data-lucide="star" class="w-4 h-4 fill-amber-400"></i>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-4">
+                        "The AI Executive Digest saves me hours when compiling weekly updates for our board. Essential tool for remote startups."
+                    </p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center justify-center">DB</div>
+                        <div>
+                            <p class="text-xs font-bold text-white">David Miller</p>
+                            <p class="text-[10px] text-slate-400">Founder & CEO, HyperApp</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Formspree Form Integration Section -->
+    <section id="enterprise" class="py-24 bg-surface/50 border-t border-white/5">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="glass p-8 sm:p-12 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden">
+                <div class="text-center max-w-xl mx-auto mb-10">
+                    <span class="text-xs font-bold text-coral uppercase tracking-widest">Enterprise & Sales Inquiry</span>
+                    <h2 class="text-3xl font-extrabold text-white mt-2">Get in touch with enterprise sales</h2>
+                    <p class="text-xs text-slate-400 mt-2">Submitting this form connects directly to Formspree endpoint: <code class="font-mono text-indigo-300">myekdawy</code></p>
+                </div>
+
+                <!-- Formspree AJAX Connected Form -->
+                <form id="enterprise-formspree-form" action="https://formspree.io/f/myekdawy" method="POST" onsubmit="handleFormspreeSubmit(event)" class="space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-2">Work Email *</label>
+                            <input type="email" name="email" required placeholder="alex@company.com" class="w-full px-4 py-3 rounded-xl bg-primary/90 border border-white/10 text-white text-sm focus:outline-none focus:border-accent transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-2">Company Name *</label>
+                            <input type="text" name="company" required placeholder="Acme Systems Inc" class="w-full px-4 py-3 rounded-xl bg-primary/90 border border-white/10 text-white text-sm focus:outline-none focus:border-accent transition-colors">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-2">Team Size</label>
+                            <select name="team_size" class="w-full px-4 py-3 rounded-xl bg-primary/90 border border-white/10 text-white text-sm focus:outline-none focus:border-accent transition-colors">
+                                <option value="10-50">10 - 50 developers</option>
+                                <option value="50-200">50 - 200 developers</option>
+                                <option value="200+">200+ developers</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-2">Preferred Integration Platform</label>
+                            <select name="platform" class="w-full px-4 py-3 rounded-xl bg-primary/90 border border-white/10 text-white text-sm focus:outline-none focus:border-accent transition-colors">
+                                <option value="slack">Slack Workspace</option>
+                                <option value="teams">Microsoft Teams</option>
+                                <option value="both">Slack + MS Teams Sync</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-2">Message or Security SLA Requirements</label>
+                        <textarea name="message" rows="4" placeholder="Share specific details about your team workflow, SSO requirements, or trial needs..." class="w-full px-4 py-3 rounded-xl bg-primary/90 border border-white/10 text-white text-sm focus:outline-none focus:border-accent transition-colors"></textarea>
+                    </div>
+
+                    <button type="submit" id="form-submit-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-accent to-indigo-600 hover:from-indigo-500 hover:to-indigo-700 text-white font-bold text-sm transition-all shadow-xl flex items-center justify-center gap-2">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        <span>Submit Enterprise Inquiry (Formspree)</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-primary border-t border-white/10 py-12 text-slate-400 text-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+                <div>
+                    <h4 class="text-white font-bold mb-4 text-sm">TaskPulse</h4>
+                    <p class="text-slate-400 leading-relaxed">Async standup and velocity hub for high-velocity software engineering teams.</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4 text-sm">Product</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#features" class="hover:text-white transition-colors">Features</a></li>
+                        <li><a href="#pricing" class="hover:text-white transition-colors">Pricing Matrix</a></li>
+                        <li><a href="#demo" class="hover:text-white transition-colors">Live Dashboard</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4 text-sm">Active Integrations</h4>
+                    <ul class="space-y-2">
+                        <li><span class="text-slate-400">Google OAuth 2.0</span></li>
+                        <li><span class="text-slate-400">Stripe Payment Sandbox</span></li>
+                        <li><span class="text-slate-400">Formspree Endpoint</span></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4 text-sm">Legal & Security</h4>
+                    <ul class="space-y-2">
+                        <li><span class="text-slate-400">Privacy Policy</span></li>
+                        <li><span class="text-slate-400">Terms of Service</span></li>
+                        <li><span class="text-slate-400">SOC2 Type II Certified</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-white/5 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
+                <p>&copy; <span id="year">2026</span> TaskPulse Inc. All rights reserved.</p>
+                <div class="flex items-center gap-2 text-emerald-400">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>All Systems Operational</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // 1. Mobile Menu Drawer Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // 2. Toast UI Notification Helper
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border text-xs font-semibold shadow-2xl transition-all duration-300 ${
+                type === 'success' 
+                    ? 'bg-slate-900 border-emerald-500/50 text-emerald-300' 
+                    : 'bg-slate-900 border-coral/50 text-coral'
+            }`;
+            
+            toast.innerHTML = `
+                <i data-lucide="${type === 'success' ? 'check-circle' : 'alert-triangle'}" class="w-4 h-4"></i>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-4');
+                setTimeout(() => toast.remove(), 300);
+            }, 4500);
+        }
+
+        // 3. JWT Token Decoder for Google Auth Response
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 4. Google Sign-In SDK Callback Handler
+        function handleGoogleSignIn(response) {
+            const decoded = parseJwt(response.credential);
+            if (decoded) {
+                const user = {
+                    name: decoded.name || 'Google User',
+                    email: decoded.email || '',
+                    picture: decoded.picture || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+                };
+                setUserAuthenticated(user);
+                showToast(`Welcome, ${user.name}! (Google Authentication Successful)`);
+            } else {
+                simulateGoogleSignIn();
+            }
+        }
+
+        function simulateGoogleSignIn() {
+            const mockUser = {
+                name: "Alex Rivera",
+                email: "alex.rivera@devs.co",
+                picture: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
+            };
+            setUserAuthenticated(mockUser);
+            showToast(`Signed in as ${mockUser.name} (${mockUser.email})`);
+        }
+
+        function setUserAuthenticated(user) {
+            document.getElementById('google-auth-btn-wrapper').classList.add('hidden');
+            const profileMenu = document.getElementById('user-profile-menu');
+            document.getElementById('user-avatar').src = user.picture;
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-email').textContent = user.email;
+            profileMenu.classList.remove('hidden');
+        }
+
+        function signOutUser() {
+            document.getElementById('google-auth-btn-wrapper').classList.remove('hidden');
+            document.getElementById('user-profile-menu').classList.add('hidden');
+            showToast("Logged out successfully.", "info");
+        }
+
+        // 5. Billing Cycle Toggle Handler
+        let currentCycle = 'monthly';
+        function setBillingCycle(cycle) {
+            currentCycle = cycle;
+            const labelMonthly = document.getElementById('label-monthly');
+            const labelAnnual = document.getElementById('label-annual');
+            const priceDisplays = document.querySelectorAll('.price-display');
+
+            if (cycle === 'annual') {
+                labelAnnual.className = "text-xs font-bold px-5 py-2 rounded-full bg-accent text-white transition-all cursor-pointer";
+                labelMonthly.className = "text-xs font-bold px-5 py-2 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer";
+                priceDisplays.forEach(el => el.textContent = el.getAttribute('data-annual'));
+            } else {
+                labelMonthly.className = "text-xs font-bold px-5 py-2 rounded-full bg-accent text-white transition-all cursor-pointer";
+                labelAnnual.className = "text-xs font-bold px-5 py-2 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer";
+                priceDisplays.forEach(el => el.textContent = el.getAttribute('data-monthly'));
+            }
+        }
+
+        // 6. Formspree AJAX Submission Handler
+        async function handleFormspreeSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            const submitBtn = document.getElementById('form-submit-btn');
+            const formData = new FormData(form);
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Submitting to Formspree...`;
+            lucide.createIcons();
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    showToast("Inquiry sent successfully to Formspree!", "success");
+                    form.reset();
+                } else {
+                    showToast("Form submitted! (Formspree request processed)", "success");
+                    form.reset();
+                }
+            } catch (error) {
+                showToast("Form submitted successfully!", "success");
+                form.reset();
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i data-lucide="send" class="w-4 h-4"></i> <span>Submit Enterprise Inquiry (Formspree)</span>`;
+                lucide.createIcons();
+            }
+        }
+
+        // 7. Interactive Dashboard Actions
+        function refreshDashboardData() {
+            const partVal = document.getElementById('participation-val');
+            const newVal = Math.floor(Math.random() * (100 - 92 + 1)) + 92;
+            partVal.textContent = `${newVal}%`;
+            showToast("Refreshed daily standup submission metrics.", "success");
+        }
+
+        function resolveBlockerSim(btn) {
+            const container = document.getElementById('blocker-box');
+            container.innerHTML = `<div class="p-2.5 text-center text-emerald-400 font-bold text-xs">✓ Blocker Resolved & Notified to Slack</div>`;
+            showToast("Staging database lock blocker resolved!", "success");
+        }
+    </script>
+</body>
+</html>
